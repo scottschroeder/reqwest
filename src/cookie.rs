@@ -94,6 +94,23 @@ pub(crate) fn extract_response_cookies<'a>(
 #[derive(Default)]
 pub(crate) struct CookieStore(pub(crate) cookie_store::CookieStore);
 
+impl CookieStore {
+    /// Serialize any **unexpired** and **persistent** cookies in the store to JSON format and write them to `writer`
+    #[cfg(feature = "json")]
+    pub(crate) fn save_json<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
+        for cookie in self.0.iter_unexpired().filter_map(|c| {
+            if c.is_persistent() {
+                Some(::serde_json::to_string(c))
+            } else {
+                None
+            }
+        }) {
+            writeln!(writer, "{}", cookie?)?;
+        }
+        Ok(())
+    }
+}
+
 impl<'a> fmt::Debug for CookieStore {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)

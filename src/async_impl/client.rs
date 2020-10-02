@@ -59,7 +59,7 @@ use crate::{IntoUrl, Method, Proxy, StatusCode, Url};
 /// [`Rc`]: std::rc::Rc
 #[derive(Clone)]
 pub struct Client {
-    inner: Arc<ClientRef>,
+    pub(crate) inner: Arc<ClientRef>,
 }
 
 /// A `ClientBuilder` can be used to create a `Client` with  custom configuration.
@@ -1113,6 +1113,22 @@ impl Client {
     }
 }
 
+#[cfg(feature = "cookies")]
+impl Client {
+    /// Save the internal cookies as JSON
+    #[cfg(feature = "json")]
+    pub fn save_cookies_json<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Option<Result<(), std::io::Error>> {
+        self.inner.cookie_store.as_ref().map(|cs| {
+            cs.read()
+                .unwrap_or_else(|e| e.into_inner())
+                .save_json(writer)
+        })
+    }
+}
+
 impl fmt::Debug for Client {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut builder = f.debug_struct("Client");
@@ -1202,10 +1218,10 @@ impl Config {
     }
 }
 
-struct ClientRef {
+pub(crate) struct ClientRef {
     accepts: Accepts,
     #[cfg(feature = "cookies")]
-    cookie_store: Option<RwLock<cookie::CookieStore>>,
+    pub(crate) cookie_store: Option<RwLock<cookie::CookieStore>>,
     headers: HeaderMap,
     hyper: HyperClient,
     redirect_policy: redirect::Policy,
